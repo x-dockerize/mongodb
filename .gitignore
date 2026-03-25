@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.env.backup
+.env.production
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed
+/.docker/mysql/data
+docker-compose.yml
