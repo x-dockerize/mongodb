@@ -7,6 +7,7 @@ services:
     env_file: .env
     volumes:
       - ./.docker/mongodb/data:/data/db
+      - ./.docker/mongodb/configdb:/data/configdb
     networks:
       - mongodb-network
       - internal-network

@@ -1,2 +1,3 @@
 !data/*
+!configdb/*
 !.gitignore
