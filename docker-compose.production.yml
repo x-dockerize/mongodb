@@ -1,0 +1,89 @@
+services:
+  mongodb:
+    image: mongo:${MONGO_VERSION:?required}
+    container_name: mongodb
+    restart: unless-stopped
+    command: ["--auth"]
+    env_file: .env
+    volumes:
+      - ./.docker/mongodb/data:/data/db
+    networks:
+      - mongodb-network
+      - internal-network
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" -u $$MONGO_INITDB_ROOT_USERNAME -p $$MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  mongodb-backup-local:
+    image: jkaninda/mongo-bkup:latest
+    container_name: mongodb-backup-local
+    restart: unless-stopped
+    command: backup --storage local --path /backup --all-in-one
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DB_HOST: mongodb
+      DB_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      DB_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      BACKUP_CRON_EXPRESSION: ${CRON_TIME:-@daily}
+    volumes:
+      - ./.docker/mongodb-backup/backups:/backup
+    networks:
+      - internal-network
+
+  mongodb-backup-do:
+    image: jkaninda/mongo-bkup:latest
+    container_name: mongodb-backup-do
+    restart: unless-stopped
+    command: backup --storage s3 --all-in-one --path /devops/mongodb
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DB_HOST: mongodb
+      DB_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      DB_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      AWS_S3_ENDPOINT: ${AWS_S3_ENDPOINT_DO}
+      AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME_DO}
+      AWS_REGION: ${AWS_REGION_DO}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY_DO}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY_DO}
+      AWS_FORCE_PATH_STYLE: "true"
+      BACKUP_CRON_EXPRESSION: "0 2 * * *"
+    networks:
+      - internal-network
+
+  mongodb-backup-oci:
+    image: jkaninda/mongo-bkup:latest
+    container_name: mongodb-backup-oci
+    restart: unless-stopped
+    command: backup --storage s3 --all-in-one --path /devops/mongodb
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DB_HOST: mongodb
+      DB_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      DB_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      AWS_S3_ENDPOINT: ${AWS_S3_ENDPOINT_OCI}
+      AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME_OCI}
+      AWS_REGION: ${AWS_REGION_OCI}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY_OCI}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY_OCI}
+      AWS_FORCE_PATH_STYLE: "true"
+      BACKUP_CRON_EXPRESSION: "0 4 * * *"
+    networks:
+      - internal-network
+
+
+networks:
+  internal-network:
+  mongodb-network:
+    external: true
